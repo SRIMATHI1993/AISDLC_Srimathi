@@ -1,50 +1,103 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+Version change: uninitialized → 1.0.0
+Modified principles: none; five principles established for the first time.
+Added sections: Quality Standards; Harness and Agent Governance.
+Removed sections: none.
+Follow-up TODOs: Confirm the original ratification date and replace TODO(RATIFICATION_DATE).
+-->
+
+# User Story Intake and Admin Dashboard Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Approved Architecture and Separation of Concerns
+The frontend MUST use React with Vite. The backend MUST use Node.js with Express,
+and MongoDB with Mongoose MUST be the persistence layer. Frontend and backend
+responsibilities MUST remain separate, with the frontend consuming backend APIs
+rather than accessing the database directly. Frontend features MUST use reusable
+React components, and backend features MUST follow a modular architecture. This
+keeps the approved stack consistent and the application maintainable.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. REST and Data Contracts
+Backend APIs MUST follow REST resource conventions and use appropriate HTTP
+methods, status codes, and JSON representations. API request data MUST be
+validated at the boundary, and persisted data MUST be constrained by Mongoose
+schemas. The API contract and approved acceptance criteria MUST remain
+authoritative for client-server behavior.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Security by Default
+Every administrative API operation MUST enforce authentication and
+authorization on the server; hiding a frontend control is not authorization.
+All untrusted input MUST be validated before processing or persistence.
+Credentials and secrets MUST be supplied through protected configuration and
+MUST NOT be committed to source control or included in client bundles.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Automated Verification and Quality Gates
+Each implemented user story MUST have verification for every approved
+acceptance criterion. Business logic MUST have automated unit tests, and
+client-server or persistence behavior MUST have integration tests. Changes
+MUST pass the repository's tests and lint checks before approval; tests,
+validations, lint rules, and security checks MUST NOT be bypassed or weakened.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Maintainable and Reliable Delivery
+Features MUST keep presentation, API handling, business logic, and persistence
+in their appropriate frontend or backend modules. Shared behavior MUST be
+implemented through reusable components or focused shared modules rather than
+duplicated. Failures MUST be surfaced with appropriate HTTP responses and
+diagnostic logging, without exposing secrets or sensitive data. Release
+readiness MUST be demonstrated against the measurable standards below.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Quality Standards
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- **Security:** Before release, dependency and secret scans MUST report zero
+  unresolved critical or high-severity dependency vulnerabilities and zero
+  committed secrets. All administrative endpoints MUST have automated
+  authentication and authorization tests. All write endpoints MUST reject
+  invalid request data with a client error response.
+- **Reliability:** A recorded load test for the agreed release profile of at
+  least 50 concurrent clients MUST show API p95 response latency of 500 ms or
+  less and an HTTP 5xx rate below 1%. Integration tests MUST verify explicit
+  failure handling for invalid input and unavailable persistence dependencies
+  on critical user-story workflows.
+- **Testability:** CI MUST enforce at least 80% line coverage for backend
+  business logic and core frontend business logic. Every approved acceptance
+  criterion MUST link to an automated test or a documented human verification.
+- **Maintainability:** CI MUST complete the configured lint checks with zero
+  errors and zero warnings. Every change MUST pass the repository's build and
+  test commands, and new business logic MUST have corresponding automated
+  tests.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Harness and Agent Governance
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- Approved specifications and acceptance criteria are authoritative. Changes
+  to them MUST be made only through approved Spec Kit artifacts, preserving
+  their version history.
+- Coding agents MUST NOT weaken acceptance criteria, skip tests, remove
+  validations, disable linting rules, bypass security checks, alter harness
+  results, or expose secrets.
+- Before any repair attempt, the first generated implementation MUST be
+  preserved as an immutable baseline. No more than three repair attempts may
+  be made for any one failure; each attempt and its result MUST be recorded.
+- Generated code remains untrusted until all applicable quality gates pass.
+- Final approval MUST include a recorded human `ACCEPT` or `REJECT` decision.
+  An agent MUST NOT represent unapproved work as accepted.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution governs feature specifications, implementation, review, and
+release decisions for the application. Amendments MUST be made through the
+approved Spec Kit workflow, reviewed for impact on existing specifications and
+acceptance criteria, and recorded with version history. The constitution uses
+semantic versioning: MAJOR for incompatible governance changes, MINOR for new
+or materially expanded principles or sections, and PATCH for clarifications
+that do not change obligations.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+Each change MUST be checked against this constitution during specification,
+implementation, and review. Reviews MUST verify applicable architecture,
+security, reliability, testability, and maintainability standards, and MUST
+confirm that the human acceptance decision is recorded. Any exception requires
+an approved, versioned specification amendment; agents MUST NOT grant
+themselves exceptions.
+
+**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): original adoption date not provided | **Last Amended**: 2026-11-10

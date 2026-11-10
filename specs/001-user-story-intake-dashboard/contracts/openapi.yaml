@@ -1,0 +1,670 @@
+openapi: 3.1.0
+info:
+  title: User Story Intake API
+  version: 1.0.0
+  description: >
+    REST contract for contributor story intake and administrator review.
+    Authentication is validated by a deployment-provided adapter; client
+    role selection never grants API permissions.
+servers:
+  - url: /api/v1
+x-authentication: >
+  All endpoints require a trusted server-authenticated principal except where
+  otherwise stated. The existing provider and credential transport are
+  deployment-specific; the authentication adapter supplies userId and role.
+tags:
+  - name: Stories
+  - name: Comments
+  - name: Dashboard
+paths:
+  /stories:
+    get:
+      tags: [Stories]
+      operationId: listStories
+      summary: List stories visible to the authenticated user
+      description: >
+        Contributors receive only their own stories. Administrators receive
+        all stories and may use search and filters. Results sort by
+        latestSubmittedAt descending, then id ascending.
+      parameters:
+        - $ref: '#/components/parameters/Search'
+        - $ref: '#/components/parameters/StatusFilter'
+        - $ref: '#/components/parameters/PriorityFilter'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: A page of stories and pagination metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Unexpected'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    post:
+      tags: [Stories]
+      operationId: createStory
+      summary: Submit a story as a contributor
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Stable request identifier, unique within the authenticated contributor.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryInput'
+      responses:
+        '201':
+          description: Story created
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Story'
+        '200':
+          description: Idempotent retry; original story returned
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Story'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Idempotency key reused with different normalized content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Unexpected'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /stories/{storyId}:
+    parameters:
+      - $ref: '#/components/parameters/StoryId'
+    get:
+      tags: [Stories]
+      operationId: getStory
+      summary: Get complete story details
+      responses:
+        '200':
+          description: Story with comments and status history
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/Unexpected'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    patch:
+      tags: [Stories]
+      operationId: resubmitStory
+      summary: Edit and resubmit an owned story requested for changes
+      description: >
+        Available only to the story owner while status is NEEDS_CHANGES.
+        Status, owner, timestamps, comments, and history are server-managed.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoryInput'
+      responses:
+        '200':
+          description: Updated story resubmitted as SUBMITTED
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Story'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Stale version or story is not in NEEDS_CHANGES
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Unexpected'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /stories/{storyId}/comments:
+    parameters:
+      - $ref: '#/components/parameters/StoryId'
+    post:
+      tags: [Comments]
+      operationId: addReviewComment
+      summary: Add an administrator review comment
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                  pattern: '\S'
+      responses:
+        '201':
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewComment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Unexpected'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /stories/{storyId}/status:
+    parameters:
+      - $ref: '#/components/parameters/StoryId'
+    patch:
+      tags: [Stories]
+      operationId: transitionStory
+      summary: Change an eligible story's status as an administrator
+      description: >
+        Requires If-Match. NEEDS_CHANGES and REJECTED require a non-empty
+        comment. The status, status event, optional comment, and version
+        update succeed or fail together.
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/Status'
+                comment:
+                  type: string
+                  maxLength: 2000
+      responses:
+        '200':
+          description: Status changed
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoryDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Stale version or disallowed transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/Unexpected'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardSummary
+      summary: Get administrator dashboard counts
+      responses:
+        '200':
+          description: Counts by every status and priority, including zeroes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/Unexpected'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  parameters:
+    StoryId:
+      name: storyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Search:
+      name: q
+      in: query
+      description: Case-insensitive literal substring search; maximum 100 characters.
+      schema:
+        type: string
+        maxLength: 100
+    StatusFilter:
+      name: status
+      in: query
+      schema:
+        $ref: '#/components/schemas/Status'
+    PriorityFilter:
+      name: priority
+      in: query
+      schema:
+        $ref: '#/components/schemas/Priority'
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: ETag from the latest story representation, used for optimistic concurrency.
+      schema:
+        type: string
+  headers:
+    ETag:
+      description: Quoted story version, for example "3".
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Malformed JSON or request shape
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated user lacks the required role
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found or hidden from this contributor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Stale version or invalid workflow transition
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unprocessable:
+      description: Request fields fail validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unexpected:
+      description: Unexpected server error; response contains no internal details
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unavailable:
+      description: Request could not be completed because a dependency is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    Status:
+      type: string
+      enum: [SUBMITTED, IN_REVIEW, NEEDS_CHANGES, APPROVED, REJECTED]
+    Priority:
+      type: string
+      enum: [LOW, MEDIUM, HIGH]
+    StoryInput:
+      type: object
+      additionalProperties: false
+      required: [title, persona, requirement, businessBenefit, acceptanceCriteria, priority]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: '\S'
+        persona:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: '\S'
+        requirement:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          pattern: '\S'
+        businessBenefit:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          pattern: '\S'
+        description:
+          type: string
+          maxLength: 5000
+        acceptanceCriteria:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            maxLength: 1000
+            pattern: '\S'
+        priority:
+          $ref: '#/components/schemas/Priority'
+    Story:
+      type: object
+      additionalProperties: false
+      required: [id, ownerId, title, persona, requirement, businessBenefit, acceptanceCriteria, priority, status, createdAt, latestSubmittedAt, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        persona:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requirement:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        businessBenefit:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        description:
+          type: string
+          maxLength: 5000
+        acceptanceCriteria:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            maxLength: 1000
+        priority:
+          $ref: '#/components/schemas/Priority'
+        status:
+          $ref: '#/components/schemas/Status'
+        createdAt:
+          type: string
+          format: date-time
+        latestSubmittedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          minimum: 1
+    ReviewComment:
+      type: object
+      required: [id, storyId, authorId, text, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        storyId:
+          type: string
+          format: uuid
+        authorId:
+          type: string
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        createdAt:
+          type: string
+          format: date-time
+    StatusEvent:
+      type: object
+      required: [id, storyId, fromStatus, toStatus, actorId, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        storyId:
+          type: string
+          format: uuid
+        fromStatus:
+          oneOf:
+            - $ref: '#/components/schemas/Status'
+            - type: 'null'
+        toStatus:
+          $ref: '#/components/schemas/Status'
+        actorId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    StoryDetail:
+      type: object
+      additionalProperties: false
+      required: [id, ownerId, title, persona, requirement, businessBenefit, acceptanceCriteria, priority, status, createdAt, latestSubmittedAt, version, comments, statusHistory]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        persona:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requirement:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        businessBenefit:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        description:
+          type: string
+          maxLength: 5000
+        acceptanceCriteria:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            maxLength: 1000
+        priority:
+          $ref: '#/components/schemas/Priority'
+        status:
+          $ref: '#/components/schemas/Status'
+        createdAt:
+          type: string
+          format: date-time
+        latestSubmittedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          minimum: 1
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewComment'
+        statusHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatusEvent'
+    StoryPage:
+      type: object
+      required: [items, page, pageSize, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Story'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+    DashboardSummary:
+      type: object
+      required: [byStatus, byPriority]
+      properties:
+        byStatus:
+          type: object
+          required: [SUBMITTED, IN_REVIEW, NEEDS_CHANGES, APPROVED, REJECTED]
+          properties:
+            SUBMITTED:
+              type: integer
+              minimum: 0
+            IN_REVIEW:
+              type: integer
+              minimum: 0
+            NEEDS_CHANGES:
+              type: integer
+              minimum: 0
+            APPROVED:
+              type: integer
+              minimum: 0
+            REJECTED:
+              type: integer
+              minimum: 0
+        byPriority:
+          type: object
+          required: [LOW, MEDIUM, HIGH]
+          properties:
+            LOW:
+              type: integer
+              minimum: 0
+            MEDIUM:
+              type: integer
+              minimum: 0
+            HIGH:
+              type: integer
+              minimum: 0
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            fieldErrors:
+              type: object
+              additionalProperties:
+                type: string
+            requestId:
+              type: string
